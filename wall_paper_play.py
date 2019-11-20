@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "sleepTime": 0.2,
     "noWindowPlayTime": 3,
     "logPath": "wall_paper.log",
-    "currentWallPaperName": "current_wall_paper.jpeg",
+    "currentWallPaperName": "current_wall_paper.jpg",
     "imageIndex": 0,
     "checkWindowTime": 1,
 }
@@ -83,6 +83,7 @@ def config_log():
 
 
 def copy_current_wall_paper(wall_paper_path, config):
+    logging.info('开始复制当前壁纸')
     if wall_paper_path is None or wall_paper_path is '':
         logging.info('壁纸路径为空，不进行当前壁纸替换')
         return
@@ -90,6 +91,7 @@ def copy_current_wall_paper(wall_paper_path, config):
     image_folder_path = config['imageFolderPath']
     current_wall_paper_path = os.path.abspath(os.path.join(image_folder_path, os.path.pardir, current_wall_paper_name))
     shutil.copyfile(wall_paper_path, current_wall_paper_path)
+    logging.info('成功复制当前壁纸')
 
 
 def config_wall_paper():
