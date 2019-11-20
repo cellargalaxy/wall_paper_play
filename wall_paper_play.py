@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import time
 from ctypes import *
 from threading import Thread
@@ -22,6 +23,7 @@ DEFAULT_CONFIG = {
     "sleepTime": 0.2,
     "noWindowPlayTime": 3,
     "logPath": "wall_paper.log",
+    "currentWallPaperName": "current_wall_paper.jpeg",
     "imageIndex": 0,
     "checkWindowTime": 1,
 }
@@ -80,6 +82,16 @@ def config_log():
     logging.getLogger('').addHandler(console)
 
 
+def copy_current_wall_paper(wall_paper_path, config):
+    if wall_paper_path is None or wall_paper_path is '':
+        logging.info('壁纸路径为空，不进行当前壁纸替换')
+        return
+    current_wall_paper_name = config['currentWallPaperName']
+    image_folder_path = config['imageFolderPath']
+    current_wall_paper_path = os.path.abspath(os.path.join(image_folder_path, os.path.pardir, current_wall_paper_name))
+    shutil.copyfile(wall_paper_path, current_wall_paper_path)
+
+
 def config_wall_paper():
     logging.info('开始配置壁纸注册表')
     # 打开指定注册表路径
@@ -123,7 +135,8 @@ class WallPaperTask:
                 logging.info('重置图片下标为0, image_index: %r', image_index)
                 image_index = 0
             for index in range(image_index, len(files)):
-                set_wall_paper(os.path.join(image_folder_path, files[index]))
+                wall_paper_path = os.path.join(image_folder_path, files[index])
+                set_wall_paper(wall_paper_path)
                 image_index = image_index + 1
                 time.sleep(sleep_time)
                 if not self._running:
@@ -131,6 +144,7 @@ class WallPaperTask:
 
         self.config['imageIndex'] = image_index
         save_config(self.config)
+        copy_current_wall_paper(wall_paper_path, self.config)
         logging.info('结束壁纸更换线程')
 
 
