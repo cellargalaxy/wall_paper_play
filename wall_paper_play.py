@@ -10,6 +10,7 @@ from time import sleep
 import win32api
 import win32con
 import win32gui
+from PIL import Image, ImageDraw
 
 # ffmpeg.exe -i "E:/视频/[U3-Project] Liz and the Blue Bird [BD AVC 1080p DTS-HDMA FLAC PGS].mkv" -r 5 -q:v 2 -f image2 "E:/视频/images/%05d.jpeg"
 
@@ -21,11 +22,14 @@ ENV_CONFIG_KEY = 'WALL_PAPER'
 DEFAULT_CONFIG = {
     "imageFolderPath": "images",
     "sleepTime": 0.2,
-    "noWindowPlayTime": 3,
-    "logPath": "wall_paper.log",
-    "currentWallPaperName": "current_wall_paper.jpg",
     "imageIndex": 0,
+    "noWindowPlayTime": 3,
     "checkWindowTime": 1,
+    "logPath": "wall_paper.log",
+    "isCopyWallPaper": False,
+    "currentWallPaperName": "current_wall_paper.jpg",
+    "currentBlackWallPaperName": "current_black_wall_paper.jpg",
+    "blackConcentration": 230,
 }
 DEFAULT_CONFIG_JSON_STRING = json.dumps(DEFAULT_CONFIG)
 
@@ -94,6 +98,27 @@ def copy_current_wall_paper(wall_paper_path, config):
     logging.info('成功复制当前壁纸')
 
 
+def black_current_wall_paper(wall_paper_path, config):
+    logging.info('开始黑遮罩当前壁纸')
+    if wall_paper_path is None or wall_paper_path is '':
+        logging.info('壁纸路径为空，不进行当前壁纸黑遮罩')
+        return
+    current_black_wall_paper_name = config['currentBlackWallPaperName']
+    image_folder_path = config['imageFolderPath']
+    black_concentration = config['blackConcentration']
+    current_wall_paper_path = os.path.abspath(
+        os.path.join(image_folder_path, os.path.pardir, current_black_wall_paper_name))
+    image = Image.open(wall_paper_path)
+    image = image.convert("RGBA")
+    black_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(black_image)
+    draw.rectangle(((0, 0), image.size), fill=(0, 0, 0, black_concentration))
+    image = Image.alpha_composite(image, black_image)
+    image = image.convert("RGB")
+    image.save(current_wall_paper_path)
+    logging.info('成功黑遮罩当前壁纸')
+
+
 def config_wall_paper():
     logging.info('开始配置壁纸注册表')
     # 打开指定注册表路径
@@ -147,6 +172,7 @@ class WallPaperTask:
         self.config['imageIndex'] = image_index
         save_config(self.config)
         copy_current_wall_paper(wall_paper_path, self.config)
+        black_current_wall_paper(wall_paper_path, self.config)
         logging.info('结束壁纸更换线程')
 
 
