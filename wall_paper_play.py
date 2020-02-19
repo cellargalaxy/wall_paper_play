@@ -3,16 +3,15 @@ import logging
 import os
 import shutil
 import time
-from ctypes import *
-from threading import Thread
-from time import sleep
-
 import win32api
 import win32con
 import win32gui
 from PIL import Image, ImageDraw
+from ctypes import *
+from threading import Thread
+from time import sleep
 
-# ffmpeg.exe -i "E:/视频/[U3-Project] Liz and the Blue Bird [BD AVC 1080p DTS-HDMA FLAC PGS].mkv" -r 5 -q:v 2 -f image2 "E:/视频/images/%05d.jpeg"
+# ffmpeg -i "/mnt/e/视频/[U3-Project] Liz and the Blue Bird [BD AVC 1080p DTS-HDMA FLAC PGS].mkv" -vf "drawtext=fontsize=15:fontcolor=gray:text='%{pts\:hms}'" -r 5 -q:v 2 -f image2 "/mnt/e/视频/images/%05d.jpeg"
 
 user32 = windll.user32
 kernel32 = windll.kernel32
