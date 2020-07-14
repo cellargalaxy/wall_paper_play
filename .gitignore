@@ -2,6 +2,7 @@
 wall_paper.log
 
 # build
+__pycache__
 build
 dist
 wall_paper_play.spec

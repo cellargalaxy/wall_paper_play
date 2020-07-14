@@ -3,15 +3,20 @@ import logging
 import os
 import shutil
 import time
-import win32api
-import win32con
-import win32gui
-from PIL import Image, ImageDraw
 from ctypes import *
 from threading import Thread
 from time import sleep
 
-# ffmpeg -i "/mnt/e/视频/[U3-Project] Liz and the Blue Bird [BD AVC 1080p DTS-HDMA FLAC PGS].mkv" -vf "drawtext=fontsize=15:fontcolor=gray:text='%{pts\:hms}'" -r 5 -q:v 2 -f image2 "/mnt/e/视频/images/%05d.jpeg"
+import win32api
+import win32con
+import win32gui
+from PIL import Image, ImageDraw
+from pydub import AudioSegment
+from pydub.playback import play
+
+# ffmpeg -i "E:/bt/视频/video.mkv" -vf "drawtext=fontsize=15:fontcolor=gray:text='%{pts\:hms}'" -r 4 -q:v 2 -f image2 "E:/bt/视频/images/%05d.jpeg"
+# ffmpeg -i "E:/bt/视频/video.mkv" -ac 2 "E:/bt/视频/audio.wav"
+# pydub只支持一通道或者两通道的音频
 
 user32 = windll.user32
 kernel32 = windll.kernel32
@@ -20,17 +25,25 @@ psapi = windll.psapi
 ENV_CONFIG_KEY = 'WALL_PAPER'
 DEFAULT_CONFIG = {
     "imageFolderPath": "images",
-    "sleepTime": 0.2,
     "imageIndex": 0,
+    "frameRate": 4,
+
+    "audioPath": "",
+    "audioVolume": -10,
+    "audioLength": 10000,
+    "audioFadeIn": 3000,
+    "audioFadeOut": 4000,
+
     "noWindowPlayTime": 3,
     "checkWindowTime": 1,
     "logPath": "wall_paper.log",
-    "isCopyWallPaper": False,
-    "currentWallPaperName": "current_wall_paper.jpg",
-    "currentBlackWallPaperName": "current_black_wall_paper.jpg",
+
+    "currentWallPaperPath": "",
+    "currentBlackWallPaperPath": "",
     "blackConcentration": 230,
 }
 DEFAULT_CONFIG_JSON_STRING = json.dumps(DEFAULT_CONFIG)
+AUDIO_SONG = None
 
 
 def get_config():
@@ -90,9 +103,10 @@ def copy_current_wall_paper(wall_paper_path, config):
     if wall_paper_path is None or wall_paper_path is '':
         logging.info('壁纸路径为空，不进行当前壁纸替换')
         return
-    current_wall_paper_name = config['currentWallPaperName']
-    image_folder_path = config['imageFolderPath']
-    current_wall_paper_path = os.path.abspath(os.path.join(image_folder_path, os.path.pardir, current_wall_paper_name))
+    current_wall_paper_path = config['currentWallPaperPath']
+    if current_wall_paper_path is None or current_wall_paper_path is '':
+        logging.info('当前壁纸路径为空，不进行当前壁纸替换')
+        return
     shutil.copyfile(wall_paper_path, current_wall_paper_path)
     logging.info('成功复制当前壁纸')
 
@@ -102,11 +116,11 @@ def black_current_wall_paper(wall_paper_path, config):
     if wall_paper_path is None or wall_paper_path is '':
         logging.info('壁纸路径为空，不进行当前壁纸黑遮罩')
         return
-    current_black_wall_paper_name = config['currentBlackWallPaperName']
-    image_folder_path = config['imageFolderPath']
+    current_black_wall_paper_path = config['currentBlackWallPaperPath']
+    if current_black_wall_paper_path is None or current_black_wall_paper_path is '':
+        logging.info('当前黑遮罩壁纸路径为空，不进行当前壁纸黑遮罩')
+        return
     black_concentration = config['blackConcentration']
-    current_wall_paper_path = os.path.abspath(
-        os.path.join(image_folder_path, os.path.pardir, current_black_wall_paper_name))
     image = Image.open(wall_paper_path)
     image = image.convert("RGBA")
     black_image = Image.new("RGBA", image.size, (0, 0, 0, 0))
@@ -114,8 +128,29 @@ def black_current_wall_paper(wall_paper_path, config):
     draw.rectangle(((0, 0), image.size), fill=(0, 0, 0, black_concentration))
     image = Image.alpha_composite(image, black_image)
     image = image.convert("RGB")
-    image.save(current_wall_paper_path)
+    image.save(current_black_wall_paper_path)
     logging.info('成功黑遮罩当前壁纸')
+
+
+def init_audit():
+    config = get_config()
+    if "audioPath" not in config or config["audioPath"] is '':
+        logging.info('无音频配置')
+        return
+    global AUDIO_SONG
+    AUDIO_SONG = AudioSegment.from_file(config["audioPath"])
+
+
+def play_audio(config):
+    global AUDIO_SONG
+    if AUDIO_SONG is None:
+        logging.info('无音频对象')
+        return
+    millisecond = config["imageIndex"] / config["frameRate"] * 1000
+    song = AUDIO_SONG[millisecond: millisecond + config["audioLength"]]
+    song = song + config["audioVolume"]
+    song = song.fade_in(config["audioFadeIn"]).fade_out(config["audioFadeOut"])
+    play(song)
 
 
 def config_wall_paper():
@@ -137,17 +172,17 @@ class WallPaperTask:
     def __init__(self, config):
         self._running = True
         self.config = config
+        self.sleep_time = 1.0 / self.config['frameRate']
 
     def interrupt(self):
         self._running = False
         # 让调用方停一停，等本线程的run的sleep过了结束
-        sleep_time = self.config['sleepTime']
-        time.sleep(sleep_time * 2)
+        time.sleep(self.sleep_time * 2)
+        play_audio(self.config)
 
     def run(self):
         image_folder_path = self.config['imageFolderPath']
         image_index = self.config['imageIndex']
-        sleep_time = self.config['sleepTime']
 
         while self._running:
             if not os.path.exists(image_folder_path):
@@ -164,7 +199,7 @@ class WallPaperTask:
                 wall_paper_path = os.path.join(image_folder_path, files[index])
                 set_wall_paper(wall_paper_path)
                 image_index = image_index + 1
-                time.sleep(sleep_time)
+                time.sleep(self.sleep_time)
                 if not self._running:
                     break
 
@@ -249,6 +284,7 @@ def check_focus():
 def main():
     config_log()
     config_wall_paper()
+    init_audit()
     check_focus()
 
 
