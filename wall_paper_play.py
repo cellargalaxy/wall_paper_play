@@ -22,6 +22,7 @@ user32 = windll.user32
 kernel32 = windll.kernel32
 psapi = windll.psapi
 
+CONFIG_FILE_PATH = 'wall_paper_play.json'
 ENV_CONFIG_KEY = 'WALL_PAPER'
 DEFAULT_CONFIG = {
     "imageFolderPath": "images",
@@ -43,47 +44,75 @@ DEFAULT_CONFIG = {
     "blackConcentration": 230,
 }
 DEFAULT_CONFIG_JSON_STRING = json.dumps(DEFAULT_CONFIG)
+CONFIG = None
 AUDIO_SONG = None
 
 
-def get_config():
-    config_json_string = os.getenv(ENV_CONFIG_KEY, DEFAULT_CONFIG_JSON_STRING)
-    logging.info('环境变量读取配置: %r', config_json_string)
+def load_config():
+    config_json_string = None
+    if os.path.exists(CONFIG_FILE_PATH):
+        with open(CONFIG_FILE_PATH, 'r') as f:
+            config_json_string = f.read()
+            print('配置文件读取配置: ', config_json_string)
+    if config_json_string is None or config_json_string is '':
+        config_json_string = os.getenv(ENV_CONFIG_KEY, DEFAULT_CONFIG_JSON_STRING)
+        print('环境变量读取配置: ', config_json_string)
 
     try:
         config = json.loads(config_json_string)
-        logging.info('反序列化配置: %r', config)
+        print('反序列化配置: ', config)
     except:
-        logging.error('反序列化配置失败')
+        print('反序列化配置失败')
         return DEFAULT_CONFIG
 
     for key, value in DEFAULT_CONFIG.items():
         if key not in config:
             config[key] = value
 
-    logging.info('生成配置: %r', config)
+    print('生成配置: ', config)
     return config
 
 
-def save_config(config):
-    config_json_string = json.dumps(config)
+def get_config():
+    global CONFIG, DEFAULT_CONFIG
+    if CONFIG is None:
+        CONFIG = load_config()
+        DEFAULT_CONFIG = load_config()
+    return CONFIG
+
+
+def save_config():
+    global CONFIG, DEFAULT_CONFIG
+    if CONFIG is None:
+        logging.error('配置对象为空，保存对象失败')
+        return
+
+    config = load_config()
+    for key, value in config.items():
+        if config[key] != DEFAULT_CONFIG[key]:
+            CONFIG[key] = value
+            DEFAULT_CONFIG[key] = value
+            if key is 'audioPath':
+                config_audit()
+
+    config_json_string = json.dumps(CONFIG, indent=4)
     logging.info('序列化配置: %r', config_json_string)
-    cmd = 'setx %s "%s"' % (ENV_CONFIG_KEY, config_json_string.replace('"', '\\"'))
-    logging.info('环境变量保存配置命令: %r', cmd)
-    os.system(cmd)
+
+    if os.path.exists(CONFIG_FILE_PATH):
+        with open(CONFIG_FILE_PATH, 'w') as f:
+            f.write(config_json_string)
+            logging.info('配置文件保存配置完成')
+
+    if ENV_CONFIG_KEY in os.environ:
+        cmd = 'setx %s "%s"' % (ENV_CONFIG_KEY, config_json_string.replace('"', '\\"'))
+        logging.info('环境变量保存配置命令: %r', cmd)
+        os.system(cmd)
+
     logging.info('保存配置完成')
 
 
-def config_log():
-    config_json_string = os.getenv(ENV_CONFIG_KEY, DEFAULT_CONFIG_JSON_STRING)
-    print('环境变量读取配置: %s' % config_json_string)
-
-    try:
-        config = json.loads(config_json_string)
-        print('反序列化配置: %r' % config)
-    except:
-        print('反序列化配置失败')
-        config = DEFAULT_CONFIG
+def init_log():
+    config = get_config()
 
     logging.basicConfig(
         filename=config['logPath'],
@@ -132,12 +161,13 @@ def black_current_wall_paper(wall_paper_path, config):
     logging.info('成功黑遮罩当前壁纸')
 
 
-def init_audit():
+def config_audit():
+    global AUDIO_SONG
     config = get_config()
     if "audioPath" not in config or config["audioPath"] is '':
+        AUDIO_SONG = None
         logging.info('无音频配置')
         return
-    global AUDIO_SONG
     AUDIO_SONG = AudioSegment.from_file(config["audioPath"])
 
 
@@ -204,9 +234,9 @@ class WallPaperTask:
                     break
 
         self.config['imageIndex'] = image_index
-        save_config(self.config)
         copy_current_wall_paper(wall_paper_path, self.config)
         black_current_wall_paper(wall_paper_path, self.config)
+        save_config()
         logging.info('结束壁纸更换线程')
 
 
@@ -229,15 +259,15 @@ def get_process_name():
 
 
 def check_focus():
-    config = get_config()
-    check_window_time = config['checkWindowTime']
-    no_window_play_time = config['noWindowPlayTime']
-
     no_window_time = 0
     wall_paper_task = None
     names = [[None, None], [None, None]]
 
     while True:
+        config = get_config()
+        check_window_time = config['checkWindowTime']
+        no_window_play_time = config['noWindowPlayTime']
+
         name = get_process_name()
         names.pop(0)
         names.append(name)
@@ -282,9 +312,9 @@ def check_focus():
 
 
 def main():
-    config_log()
+    init_log()
     config_wall_paper()
-    init_audit()
+    config_audit()
     check_focus()
 
 

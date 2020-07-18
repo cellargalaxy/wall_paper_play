@@ -1,0 +1,16 @@
+{
+  "imageFolderPath": "images",
+  "imageIndex": 0,
+  "frameRate": 4,
+  "audioPath": "",
+  "audioVolume": -10,
+  "audioLength": 10000,
+  "audioFadeIn": 3000,
+  "audioFadeOut": 4000,
+  "noWindowPlayTime": 3,
+  "checkWindowTime": 1,
+  "logPath": "wall_paper.log",
+  "currentWallPaperPath": "",
+  "currentBlackWallPaperPath": "",
+  "blackConcentration": 230
+}
