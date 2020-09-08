@@ -10,6 +10,7 @@ from time import sleep
 import win32api
 import win32con
 import win32gui
+import pywintypes
 from PIL import Image, ImageDraw
 from pydub import AudioSegment
 from pydub.playback import play
