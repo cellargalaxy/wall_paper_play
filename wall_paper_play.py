@@ -23,7 +23,6 @@ kernel32 = windll.kernel32
 psapi = windll.psapi
 
 CONFIG_FILE_PATH = 'wall_paper_play.json'
-ENV_CONFIG_KEY = 'WALL_PAPER'
 DEFAULT_CONFIG = {
     "imageFolderPath": "images",
     "imageIndex": 0,
@@ -49,71 +48,78 @@ AUDIO_SONG = None
 
 
 def load_config():
+    if not os.path.exists(CONFIG_FILE_PATH):
+        print('加载配置，配置文件不存在')
+        return None
+
     config_json_string = None
-    if os.path.exists(CONFIG_FILE_PATH):
+    try:
         with open(CONFIG_FILE_PATH, 'r') as f:
             config_json_string = f.read()
-            print('配置文件读取配置: ', config_json_string)
-    if config_json_string is None or config_json_string is '':
-        config_json_string = os.getenv(ENV_CONFIG_KEY, DEFAULT_CONFIG_JSON_STRING)
-        print('环境变量读取配置: ', config_json_string)
+    except:
+        print('读取配置文件失败')
+        return None
+    # print('配置文件读取配置: ', config_json_string)
 
     try:
         config = json.loads(config_json_string)
-        print('反序列化配置: ', config)
+        # print('反序列化配置: ', config)
     except:
         print('反序列化配置失败')
-        return DEFAULT_CONFIG
+        return None
 
-    for key, value in DEFAULT_CONFIG.items():
-        if key not in config:
-            config[key] = value
-
-    print('生成配置: ', config)
     return config
 
 
-def get_config():
+def flush_config():
+    new_config = load_config()
+    if new_config == None:
+        return
+
     global CONFIG, DEFAULT_CONFIG
-    if CONFIG is None:
-        CONFIG = load_config()
-        DEFAULT_CONFIG = load_config()
-    return CONFIG
+    if CONFIG == None:
+        init_log(new_config)
+        init_audit(new_config)
+    else:
+        if 'logPath' in new_config and new_config['logPath'] != CONFIG['logPath']:
+            init_log(new_config)
+        if 'audioPath' in new_config and new_config['audioPath'] != CONFIG['audioPath']:
+            init_audit(new_config)
+
+    for key, value in DEFAULT_CONFIG.items():
+        if key not in new_config:
+            new_config[key] = value
+    CONFIG = new_config
+    logging.info('刷新配置: %r', CONFIG)
 
 
-def save_config():
-    global CONFIG, DEFAULT_CONFIG
-    if CONFIG is None:
+def save_config(config):
+    if config == None:
         logging.error('配置对象为空，保存对象失败')
         return
 
-    config = load_config()
-    for key, value in config.items():
-        if config[key] != DEFAULT_CONFIG[key]:
-            CONFIG[key] = value
-            DEFAULT_CONFIG[key] = value
-            if key is 'audioPath':
-                config_audit()
+    try:
+        config_json_string = json.dumps(config, indent=4)
+        logging.info('序列化配置: %r', config_json_string)
+    except:
+        logging.error('序列化配置对象失败')
+        return
 
-    config_json_string = json.dumps(CONFIG, indent=4)
-    logging.info('序列化配置: %r', config_json_string)
+    if not os.path.exists(CONFIG_FILE_PATH):
+        logging.error('保存配置，配置文件不存在')
+        return
 
-    if os.path.exists(CONFIG_FILE_PATH):
+    try:
         with open(CONFIG_FILE_PATH, 'w') as f:
             f.write(config_json_string)
-            logging.info('配置文件保存配置完成')
+    except:
+        logging.error('保存配置到文件失败')
+        return
 
-    if ENV_CONFIG_KEY in os.environ:
-        cmd = 'setx %s "%s"' % (ENV_CONFIG_KEY, config_json_string.replace('"', '\\"'))
-        logging.info('环境变量保存配置命令: %r', cmd)
-        os.system(cmd)
-
-    logging.info('保存配置完成')
+    logging.info('配置文件保存成功')
 
 
-def init_log():
-    config = get_config()
-
+def init_log(config):
     logging.basicConfig(
         filename=config['logPath'],
         level=logging.INFO,
@@ -125,15 +131,16 @@ def init_log():
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
+    logging.info('初始化日志完成')
 
 
 def copy_current_wall_paper(wall_paper_path, config):
     logging.info('开始复制当前壁纸')
-    if wall_paper_path is None or wall_paper_path is '':
+    if wall_paper_path == None or wall_paper_path == '':
         logging.info('壁纸路径为空，不进行当前壁纸替换')
         return
     current_wall_paper_path = config['currentWallPaperPath']
-    if current_wall_paper_path is None or current_wall_paper_path is '':
+    if current_wall_paper_path == None or current_wall_paper_path == '':
         logging.info('当前壁纸路径为空，不进行当前壁纸替换')
         return
     shutil.copyfile(wall_paper_path, current_wall_paper_path)
@@ -142,11 +149,11 @@ def copy_current_wall_paper(wall_paper_path, config):
 
 def black_current_wall_paper(wall_paper_path, config):
     logging.info('开始黑遮罩当前壁纸')
-    if wall_paper_path is None or wall_paper_path is '':
+    if wall_paper_path == None or wall_paper_path == '':
         logging.info('壁纸路径为空，不进行当前壁纸黑遮罩')
         return
     current_black_wall_paper_path = config['currentBlackWallPaperPath']
-    if current_black_wall_paper_path is None or current_black_wall_paper_path is '':
+    if current_black_wall_paper_path == None or current_black_wall_paper_path == '':
         logging.info('当前黑遮罩壁纸路径为空，不进行当前壁纸黑遮罩')
         return
     black_concentration = config['blackConcentration']
@@ -161,19 +168,18 @@ def black_current_wall_paper(wall_paper_path, config):
     logging.info('成功黑遮罩当前壁纸')
 
 
-def config_audit():
+def init_audit(config):
     global AUDIO_SONG
-    config = get_config()
-    if "audioPath" not in config or config["audioPath"] is '':
-        AUDIO_SONG = None
+    if "audioPath" not in config or config["audioPath"] == None or config["audioPath"] == '':
         logging.info('无音频配置')
+        AUDIO_SONG = None
         return
     AUDIO_SONG = AudioSegment.from_file(config["audioPath"])
 
 
 def play_audio(config):
     global AUDIO_SONG
-    if AUDIO_SONG is None:
+    if AUDIO_SONG == None:
         logging.info('无音频对象')
         return
     millisecond = config["imageIndex"] / config["frameRate"] * 1000
@@ -183,7 +189,7 @@ def play_audio(config):
     play(song)
 
 
-def config_wall_paper():
+def init_wall_paper():
     logging.info('开始配置壁纸注册表')
     # 打开指定注册表路径
     reg_key = win32api.RegOpenKeyEx(win32con.HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, win32con.KEY_SET_VALUE)
@@ -219,7 +225,7 @@ class WallPaperTask:
                 logging.error('文件夹不存在: %r', image_folder_path)
                 break
             files = os.listdir(image_folder_path)
-            if files is None or len(files) == 0:
+            if files == None or len(files) == 0:
                 logging.error('文件夹没有文件')
                 break
             if image_index < 0 or image_index >= len(files):
@@ -236,7 +242,6 @@ class WallPaperTask:
         self.config['imageIndex'] = image_index
         copy_current_wall_paper(wall_paper_path, self.config)
         black_current_wall_paper(wall_paper_path, self.config)
-        save_config()
         logging.info('结束壁纸更换线程')
 
 
@@ -264,29 +269,31 @@ def check_focus():
     names = [[None, None], [None, None]]
 
     while True:
-        config = get_config()
-        check_window_time = config['checkWindowTime']
-        no_window_play_time = config['noWindowPlayTime']
+        check_window_time = CONFIG['checkWindowTime']
+        no_window_play_time = CONFIG['noWindowPlayTime']
 
         name = get_process_name()
         names.pop(0)
         names.append(name)
         logging.info('焦点窗口检查: %r', names)
-        if names is None or len(names) != 2 or \
-                names[0] is None or len(names[0]) != 2 or \
-                names[1] is None or len(names[1]) != 2:
+        if names == None or len(names) != 2 or \
+                names[0] == None or len(names[0]) != 2 or \
+                names[1] == None or len(names[1]) != 2:
             logging.error('非法窗口结构')
             sleep(check_window_time)
             continue
 
-        explorer = names[0][0] != None and names[0][0].lower() == 'explorer.exe' and \
-                   names[0][1] != None and names[0][1].lower() == '' and \
-                   names[1][0] != None and names[1][0].lower() == 'explorer.exe' and \
-                   names[1][1] != None and names[1][1].lower() == ''
+        # explorer = names[0][0] != None and names[0][0].lower() == 'explorer.exe' and \
+        #            names[0][1] != None and names[0][1].lower() == '' and \
+        #            names[1][0] != None and names[1][0].lower() == 'explorer.exe' and \
+        #            names[1][1] != None and names[1][1].lower() == ''
 
-        hipstray = names[0][0] != None and names[0][0].lower() == 'hipstray.exe' and \
-                   names[0][1] != None and names[0][1].lower() == '' and \
-                   names[1][0] != None and names[1][0].lower() == 'hipstray.exe' and \
+        # hipstray = names[0][0] != None and names[0][0].lower() == 'hipstray.exe' and \
+        #            names[0][1] != None and names[0][1].lower() == '' and \
+        #            names[1][0] != None and names[1][0].lower() == 'hipstray.exe' and \
+        #            names[1][1] != None and names[1][1].lower() == ''
+
+        explorer = names[0][1] != None and names[0][1].lower() == '' and \
                    names[1][1] != None and names[1][1].lower() == ''
 
         program_manager = names[0][0] != None and names[0][0].lower() == 'explorer.exe' and \
@@ -294,17 +301,19 @@ def check_focus():
                           names[1][0] != None and names[1][0].lower() == 'explorer.exe' and \
                           names[1][1] != None and names[1][1].lower() == 'program manager'
 
-        if explorer or hipstray or program_manager:
+        if explorer or program_manager:
             logging.info('空桌面')
             no_window_time = no_window_time + check_window_time
-            if no_window_time > no_window_play_time and wall_paper_task is None:
+            if no_window_time > no_window_play_time and wall_paper_task == None:
                 logging.info('创建并启动线程')
-                wall_paper_task = WallPaperTask(config)
+                flush_config()
+                wall_paper_task = WallPaperTask(CONFIG)
                 thead = Thread(target=wall_paper_task.run, daemon=True)
                 thead.start()
-        elif wall_paper_task is not None:
+        elif wall_paper_task != None:
             logging.info('非空桌面，销毁线程')
             wall_paper_task.interrupt()
+            save_config(wall_paper_task.config)
             no_window_time = 0
             wall_paper_task = None
 
@@ -312,9 +321,8 @@ def check_focus():
 
 
 def main():
-    init_log()
-    config_wall_paper()
-    config_audit()
+    flush_config()
+    init_wall_paper()
     check_focus()
 
 
