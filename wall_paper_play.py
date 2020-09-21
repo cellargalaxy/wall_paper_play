@@ -220,6 +220,7 @@ class WallPaperTask:
     def run(self):
         image_folder_path = self.config['imageFolderPath']
         image_index = self.config['imageIndex']
+        wall_paper_path = ''
 
         while self._running:
             if not os.path.exists(image_folder_path):
@@ -276,7 +277,6 @@ def check_focus():
         name = get_process_name()
         names.pop(0)
         names.append(name)
-        logging.info('焦点窗口检查: %r', names)
         if names == None or len(names) != 2 or \
                 names[0] == None or len(names[0]) != 2 or \
                 names[1] == None or len(names[1]) != 2:
@@ -284,25 +284,14 @@ def check_focus():
             sleep(check_window_time)
             continue
 
-        # explorer = names[0][0] != None and names[0][0].lower() == 'explorer.exe' and \
-        #            names[0][1] != None and names[0][1].lower() == '' and \
-        #            names[1][0] != None and names[1][0].lower() == 'explorer.exe' and \
-        #            names[1][1] != None and names[1][1].lower() == ''
+        if names[0][0] != names[1][0] or names[0][1] != names[1][1]:
+            logging.info('焦点窗口变更为: %r', names[1])
 
-        # hipstray = names[0][0] != None and names[0][0].lower() == 'hipstray.exe' and \
-        #            names[0][1] != None and names[0][1].lower() == '' and \
-        #            names[1][0] != None and names[1][0].lower() == 'hipstray.exe' and \
-        #            names[1][1] != None and names[1][1].lower() == ''
+        program_manager = name[1] != None and name[1].lower() == 'program manager'
+        blank_space = name[0] != None and name[0].lower() == '?' and \
+                      name[1] != None and name[1].lower() == ''
 
-        explorer = names[0][1] != None and names[0][1].lower() == '' and \
-                   names[1][1] != None and names[1][1].lower() == ''
-
-        program_manager = names[0][0] != None and names[0][0].lower() == 'explorer.exe' and \
-                          names[0][1] != None and names[0][1].lower() == 'program manager' and \
-                          names[1][0] != None and names[1][0].lower() == 'explorer.exe' and \
-                          names[1][1] != None and names[1][1].lower() == 'program manager'
-
-        if explorer or program_manager:
+        if program_manager or blank_space:
             logging.info('空桌面')
             no_window_time = no_window_time + check_window_time
             if no_window_time > no_window_play_time and wall_paper_task == None:
