@@ -59,7 +59,7 @@ def load_config():
 
     config_json_string = None
     try:
-        with open(CONFIG_FILE_PATH, 'r') as f:
+        with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
             config_json_string = f.read()
     except:
         print('读取配置文件失败')
@@ -115,7 +115,7 @@ def save_config(config):
         return
 
     try:
-        with open(CONFIG_FILE_PATH, 'w') as f:
+        with open(CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
             f.write(config_json_string)
     except:
         logging.error('保存配置到文件失败')
