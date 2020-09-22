@@ -104,7 +104,7 @@ def save_config(config):
         return
 
     try:
-        config_json_string = json.dumps(config, indent=4)
+        config_json_string = json.dumps(config, indent=2)
         logging.info('序列化配置: %r', config_json_string)
     except:
         logging.error('序列化配置对象失败')
@@ -289,21 +289,23 @@ def check_focus():
             sleep(check_window_time)
             continue
 
-        if names[0][0] != names[1][0] or names[0][1] != names[1][1]:
-            logging.info('焦点窗口变更为: %r', names[1])
-
-        is_blank_space = True
+        is_blank_space = False
         for blank_name in blank_space:
             if blank_name == None or len(blank_name) != 2:
                 logging.error('空窗口名长度不为2: %r', blank_name)
                 continue
-            if blank_name[0] != None:
-                is_blank_space = is_blank_space and name[0].lower() == blank_name[0].lower()
-            if blank_name[1] != None:
-                is_blank_space = is_blank_space and name[1].lower() == blank_name[1].lower()
+            black1 = blank_name[0] == None or name[0].lower() == blank_name[0].lower()
+            black2 = blank_name[1] == None or name[1].lower() == blank_name[1].lower()
+            is_blank_space = black1 and black2
+            if is_blank_space:
+                break
+
+        if names[0][0] != names[1][0] or names[0][1] != names[1][1]:
+            logging.info('焦点窗口变更为: %r', names[1])
+            if is_blank_space:
+                logging.info('空桌面')
 
         if is_blank_space:
-            logging.info('空桌面')
             no_window_time = no_window_time + check_window_time
             if no_window_time > no_window_play_time and wall_paper_task == None:
                 logging.info('创建并启动线程')

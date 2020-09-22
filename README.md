@@ -14,16 +14,19 @@ ffmpeg -i "E:/bt/视频/video.mkv" -vf "drawtext=fontsize=15:fontcolor=gray:text
 ffmpeg -i "E:/bt/视频/video.mkv" -ac 2 "E:/bt/视频/audio.wav"
 ```
 
-第一种选择，可以在可执行文件目录下创建一个名为`wall_paper_play.json`的文件保存配置。
+在可执行文件目录下创建一个名为`wall_paper_play.json`的文件保存配置。
 
-The first option is to create a file named `wall_paper_play.json` in the executable file directory to save the configuration of json.
-
-或者配置一个环境变量，变量名为`WALL_PAPER`，结构为json：
-
-Or configure an environment variable, the variable name is `WALL_PAPER`, and the structure is json:
+Create a file named `wall_paper_play.json` in the executable file directory to save the configuration of json.
 
 ```json
 {
+  "blankSpace": [ //wall_paper_play会检测当前焦点所在的窗口名称，配置某些窗口名称，使得壁纸进行播放
+    [
+      null,
+      "program manager"
+    ]
+  ],
+
   "imageFolderPath": "E:/bt/视频/images",  //使用ffmpeg生成的图片的文件夹
   "imageIndex": 8000,  //当前播放到图片的下标
   "frameRate": 4,  //每秒多少帧，与ffmpeg的-r参数一致
