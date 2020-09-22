@@ -25,6 +25,10 @@ psapi = windll.psapi
 
 CONFIG_FILE_PATH = 'wall_paper_play.json'
 DEFAULT_CONFIG = {
+    "blankSpace": [
+        [None, "program manager"]
+    ],
+
     "imageFolderPath": "images",
     "imageIndex": 0,
     "frameRate": 4,
@@ -273,6 +277,7 @@ def check_focus():
     while True:
         check_window_time = CONFIG['checkWindowTime']
         no_window_play_time = CONFIG['noWindowPlayTime']
+        blank_space = CONFIG['blankSpace']
 
         name = get_process_name()
         names.pop(0)
@@ -287,11 +292,17 @@ def check_focus():
         if names[0][0] != names[1][0] or names[0][1] != names[1][1]:
             logging.info('焦点窗口变更为: %r', names[1])
 
-        program_manager = name[1] != None and name[1].lower() == 'program manager'
-        blank_space = name[0] != None and name[0].lower() == '?' and \
-                      name[1] != None and name[1].lower() == ''
+        is_blank_space = True
+        for blank_name in blank_space:
+            if blank_name == None or len(blank_name) != 2:
+                logging.error('空窗口名长度不为2: %r', blank_name)
+                continue
+            if blank_name[0] != None:
+                is_blank_space = is_blank_space and name[0].lower() == blank_name[0].lower()
+            if blank_name[1] != None:
+                is_blank_space = is_blank_space and name[1].lower() == blank_name[1].lower()
 
-        if program_manager or blank_space:
+        if is_blank_space:
             logging.info('空桌面')
             no_window_time = no_window_time + check_window_time
             if no_window_time > no_window_play_time and wall_paper_task == None:

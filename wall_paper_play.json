@@ -1,4 +1,10 @@
 {
+  "blankSpace": [
+    [
+      null,
+      "program manager"
+    ]
+  ],
   "imageFolderPath": "images",
   "imageIndex": 0,
   "frameRate": 4,
