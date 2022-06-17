@@ -5,7 +5,7 @@ Pillow~=6.2.2
 pydub==0.24.1
 pyinstaller==4.0
 pyinstaller-hooks-contrib==2020.7
-pywin32==228
+pywin32==301
 pywin32-ctypes==0.2.0
 simpleaudio==1.0.4
 AppKit~=0.2.8
